@@ -9,7 +9,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 RUNTIME_MATRIX="${SCRIPT_DIR}/runtime-matrix.json"
-WAT2WASM="${PROJECT_ROOT}/external/wabt/build/wat2wasm"
+WAT2WASM="${PROJECT_ROOT}/external/wabt/bin/wat2wasm"
 
 # Tool availability flags
 WAT2WASM_WORKS=false
@@ -113,7 +113,7 @@ check_runtime() {
 
     case "$runtime" in
         wabt)
-            binary="${PROJECT_ROOT}/external/wabt/build/wasm-interp"
+            binary="${PROJECT_ROOT}/external/wabt/bin/wasm-interp"
             version_arg="--version"
             ;;
         wasmtime)
@@ -723,7 +723,7 @@ main() {
         else
             local binary=""
             case "$rt" in
-                wabt) binary="${PROJECT_ROOT}/external/wabt/build/wasm-interp" ;;
+                wabt) binary="${PROJECT_ROOT}/external/wabt/bin/wasm-interp" ;;
                 wasmtime) binary="${PROJECT_ROOT}/external/wasmtime/wasmtime" ;;
                 wasmer) binary="${PROJECT_ROOT}/external/wasmer/bin/wasmer" ;;
                 wazero) binary="${PROJECT_ROOT}/external/wazero/bin/wazero" ;;

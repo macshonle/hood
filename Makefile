@@ -3,19 +3,18 @@
 
 # Directories
 WABT_DIR := external/wabt
-WABT_BUILD_DIR := $(WABT_DIR)/build
 WASMTIME_DIR := external/wasmtime
 WAZERO_DIR := external/wazero
 WASMER_DIR := external/wasmer
 WASMEDGE_DIR := external/wasmedge
 TEST_DIR := test/wat
 
-# Tools
-CMAKE := cmake
-WAT2WASM := $(WABT_BUILD_DIR)/wat2wasm
-WASM_INTERP := $(WABT_BUILD_DIR)/wasm-interp
+# Tools (paths after binary installation)
+WAT2WASM := $(WABT_DIR)/bin/wat2wasm
+WASM_INTERP := $(WABT_DIR)/bin/wasm-interp
 
 # Runtime versions
+WABT_VERSION := 1.0.39
 WASMTIME_VERSION := v27.0.0
 WASMER_VERSION := v6.1.0
 
@@ -45,39 +44,18 @@ endif
 
 # Default target
 .PHONY: all
-all: build
+all: install-wabt
 
 # Check prerequisites
 .PHONY: check-prereqs
 check-prereqs:
 	@./scripts/check_prerequisites.sh
 
-# Initialize git submodules
-.PHONY: init submodules
-init: submodules
-
-submodules:
-	@echo "Initializing git submodules..."
-	git submodule update --init --recursive
-
-# Build wabt
-.PHONY: build build-wabt
-build: build-wabt
-
-build-wabt: $(WABT_BUILD_DIR)/Makefile
-	@echo "Building wabt..."
-	$(CMAKE) --build $(WABT_BUILD_DIR)
-
-$(WABT_BUILD_DIR)/Makefile: | submodules
-	@echo "Configuring wabt with cmake..."
-	mkdir -p $(WABT_BUILD_DIR)
-	cd $(WABT_BUILD_DIR) && $(CMAKE) ..
-
-# Verify tools are built
+# Verify tools are installed
 .PHONY: check-tools
 check-tools:
-	@test -x $(WAT2WASM) || (echo "Error: wat2wasm not found. Run 'make build' first." && exit 1)
-	@test -x $(WASM_INTERP) || (echo "Error: wasm-interp not found. Run 'make build' first." && exit 1)
+	@test -x $(WAT2WASM) || (echo "Error: wat2wasm not found. Run 'make install-wabt' first." && exit 1)
+	@test -x $(WASM_INTERP) || (echo "Error: wasm-interp not found. Run 'make install-wabt' first." && exit 1)
 	@echo "Tools verified: wat2wasm and wasm-interp are available"
 
 # =============================================================================
@@ -86,10 +64,29 @@ check-tools:
 
 # Install all available runtimes
 .PHONY: install-runtimes
-install-runtimes: install-wasmtime install-wazero install-wasmer install-wasmedge
+install-runtimes: install-wabt install-wasmtime install-wazero install-wasmer install-wasmedge
 	@echo ""
 	@echo "Runtime installation complete."
 	@echo "Run 'make info' to see installed runtimes."
+
+# Install wabt (all platforms via direct download)
+.PHONY: install-wabt
+install-wabt:
+	@if [ -x "$(WAT2WASM)" ]; then \
+		echo "wabt already installed"; \
+	else \
+		echo "Installing wabt $(WABT_VERSION) for $(OS)-$(ARCH)..."; \
+		mkdir -p $(WABT_DIR); \
+		WABT_ARCH="$(if $(filter aarch64,$(ARCH)),arm64,x64)"; \
+		ARCHIVE="wabt-$(WABT_VERSION)-$(OS)-$${WABT_ARCH}"; \
+		echo "Downloading $${ARCHIVE}.tar.gz..."; \
+		curl -L "https://github.com/WebAssembly/wabt/releases/download/$(WABT_VERSION)/$${ARCHIVE}.tar.gz" -o /tmp/wabt.tar.gz; \
+		tar -xzf /tmp/wabt.tar.gz -C /tmp; \
+		cp -r /tmp/wabt-$(WABT_VERSION)/* $(WABT_DIR)/; \
+		chmod +x $(WABT_DIR)/bin/*; \
+		rm -rf /tmp/wabt.tar.gz /tmp/wabt-$(WABT_VERSION); \
+		echo "wabt installed to $(WABT_DIR)/"; \
+	fi
 
 # Install wasmtime (all platforms)
 .PHONY: install-wasmtime
@@ -162,11 +159,11 @@ endif
 # Clean Targets
 # =============================================================================
 
-# Clean wabt build artifacts
+# Clean wabt
 .PHONY: clean-wabt
 clean-wabt:
-	@echo "Cleaning wabt build..."
-	rm -rf $(WABT_BUILD_DIR)
+	@echo "Cleaning wabt..."
+	rm -rf $(WABT_DIR)
 
 # Clean wasmtime
 .PHONY: clean-wasmtime
@@ -192,23 +189,22 @@ clean-wasmedge:
 	@echo "Cleaning wasmedge..."
 	rm -rf $(WASMEDGE_DIR)
 
-# Clean all runtimes (except wabt which is a submodule)
+# Clean all runtimes (including wabt)
 .PHONY: clean-runtimes
-clean-runtimes: clean-wasmtime clean-wazero clean-wasmer clean-wasmedge
+clean-runtimes: clean-wabt clean-wasmtime clean-wazero clean-wasmer clean-wasmedge
 	@echo "All runtime installations cleaned."
 
-# Clean build artifacts
+# Clean generated .wasm files only
 .PHONY: clean
-clean: clean-wabt
+clean:
 	@echo "Cleaning generated .wasm files..."
 	find $(TEST_DIR) -name "*.wasm" -type f -delete 2>/dev/null || true
 	find test -name "*.wasm" -type f -delete 2>/dev/null || true
 
-# Clean everything including submodule state and runtimes
+# Clean everything
 .PHONY: distclean
 distclean: clean clean-runtimes
-	@echo "Deinitializing submodules..."
-	git submodule deinit -f $(WABT_DIR) 2>/dev/null || true
+	@echo "All cleaned."
 
 # =============================================================================
 # Test Targets
@@ -244,11 +240,8 @@ info:
 	@echo "Make version: $(MAKE_VERSION)"
 	@echo "Platform: $(OS)-$(ARCH)"
 	@echo ""
-	@echo "=== WABT Tools ==="
-	@test -x $(WAT2WASM) && echo "wat2wasm: $(WAT2WASM)" || echo "wat2wasm: NOT BUILT"
-	@test -x $(WASM_INTERP) && echo "wasm-interp: $(WASM_INTERP)" || echo "wasm-interp: NOT BUILT"
-	@echo ""
 	@echo "=== Runtimes ==="
+	@test -x $(WAT2WASM) && echo "wabt: $(WABT_DIR)/ (wat2wasm, wasm-interp)" || echo "wabt: not installed"
 	@test -x $(WASMTIME_DIR)/wasmtime && echo "wasmtime: $(WASMTIME_DIR)/wasmtime" || echo "wasmtime: not installed"
 	@test -x $(WAZERO_DIR)/bin/wazero && echo "wazero: $(WAZERO_DIR)/bin/wazero" || echo "wazero: not installed"
 	@test -x $(WASMER_DIR)/bin/wasmer && echo "wasmer: $(WASMER_DIR)/bin/wasmer" || echo "wasmer: not installed"
@@ -256,8 +249,7 @@ info:
 	@command -v node >/dev/null 2>&1 && echo "node: $$(which node)" || echo "node: not installed"
 	@echo ""
 	@echo "=== System Tools ==="
-	@which cmake >/dev/null 2>&1 && cmake --version | head -1 || echo "cmake: NOT INSTALLED"
-	@which go >/dev/null 2>&1 && go version || echo "go: NOT INSTALLED"
+	@which go >/dev/null 2>&1 && go version || echo "go: NOT INSTALLED (optional, for wazero)"
 
 # Help
 .PHONY: help
@@ -266,14 +258,13 @@ help:
 	@echo ""
 	@echo "Setup:"
 	@echo "  check-prereqs     Check system prerequisites"
-	@echo "  init              Initialize git submodules"
-	@echo "  build             Build wabt tools"
+	@echo "  install-runtimes  Install all runtimes (wabt, wasmtime, wazero, wasmer)"
 	@echo ""
-	@echo "Runtime Installation:"
-	@echo "  install-runtimes  Install all available runtimes"
-	@echo "  install-wasmtime  Install wasmtime (all platforms)"
+	@echo "Individual Runtime Installation:"
+	@echo "  install-wabt      Install wabt (wat2wasm, wasm-interp)"
+	@echo "  install-wasmtime  Install wasmtime"
 	@echo "  install-wazero    Install wazero (requires Go)"
-	@echo "  install-wasmer    Install wasmer (all platforms)"
+	@echo "  install-wasmer    Install wasmer"
 	@echo "  install-wasmedge  Install wasmedge (Linux only)"
 	@echo ""
 	@echo "Testing:"
@@ -282,14 +273,14 @@ help:
 	@echo "  test-path         Run tests for specific path (PATH=<path>)"
 	@echo ""
 	@echo "Cleaning:"
-	@echo "  clean             Remove wabt build and .wasm files"
+	@echo "  clean             Remove generated .wasm files"
 	@echo "  clean-runtimes    Remove all installed runtimes"
-	@echo "  distclean         Remove everything including submodules"
+	@echo "  distclean         Remove everything (runtimes + .wasm files)"
 	@echo ""
 	@echo "Info:"
-	@echo "  info              Show project and tool information"
+	@echo "  info              Show installed runtimes"
 	@echo "  help              Show this help message"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make check-prereqs init build install-runtimes test"
+	@echo "  make install-runtimes test"
 	@echo "  make test-path PATH=core/numeric"

@@ -142,7 +142,7 @@ vite.config.ts.timestamp-*
 test/**/*.wasm
 
 # Project-local WASM runtimes (installed via make install-runtimes)
-# Note: external/wabt is a git submodule, not ignored
+external/wabt/
 external/wasmtime/
 external/wazero/
 external/wasmer/

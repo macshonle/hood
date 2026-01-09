@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WABT_DIR="${SCRIPT_DIR}/../../external/wabt/build"
+WABT_DIR="${SCRIPT_DIR}/../../external/wabt/bin"
 WAT2WASM="${WABT_DIR}/wat2wasm"
 WASM_INTERP="${WABT_DIR}/wasm-interp"
 

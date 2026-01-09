@@ -4,27 +4,25 @@ Notes on WebAssembly runtime installation and compatibility.
 
 ## Installation Overview
 
-All project-local runtimes are installed under `external/`:
+All runtimes are installed under `external/` via binary download:
 
 | Runtime | Location | Platform | Install Command |
 |---------|----------|----------|-----------------|
-| wabt | `external/wabt/` | All | `make init build` (git submodule) |
+| wabt | `external/wabt/` | All | `make install-wabt` |
 | wasmtime | `external/wasmtime/` | All | `make install-wasmtime` |
 | wazero | `external/wazero/` | All | `make install-wazero` (requires Go) |
 | wasmer | `external/wasmer/` | All | `make install-wasmer` |
 | wasmedge | `external/wasmedge/` | Linux only | `make install-wasmedge` |
 | Node.js | System | All | System package manager |
 
+Use `make install-runtimes` to install all available runtimes at once.
+
 ## System Prerequisites
 
-These must be installed system-wide before building:
-
 **Required:**
-- CMake 3.12+ (for building wabt)
-- C++ compiler (gcc or clang)
 - Make
-- Git
 - curl or wget
+- tar
 
 **Optional:**
 - Go (for wazero runtime)
@@ -37,7 +35,7 @@ Run `make check-prereqs` to verify prerequisites.
 ### macOS (ARM64 and x86_64)
 
 Available runtimes:
-- wabt (built from source)
+- wabt (binary download)
 - wasmtime (binary download)
 - wasmer (binary download)
 - wazero (built via Go)
@@ -106,6 +104,6 @@ Uses system Node.js with WASI support. Requires Node.js 18+.
 
 ```bash
 make clean-runtimes    # Remove all installed runtimes
-make clean             # Remove wabt build and .wasm files
-make distclean         # Remove everything including submodules
+make clean             # Remove generated .wasm files
+make distclean         # Remove everything (runtimes + .wasm files)
 ```

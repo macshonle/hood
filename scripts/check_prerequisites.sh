@@ -145,18 +145,8 @@ echo ""
 echo "Required Tools:"
 echo "---------------"
 
-# CMake (required for wabt)
-check_command "cmake" "required" "required for building wabt" "brew install cmake (macOS) or apt install cmake (Linux)"
-check_cmake_version
-
-# C++ compiler (required for wabt)
-check_cpp_compiler
-
-# Make (required for build)
+# Make (required for Makefile)
 check_command "make" "required" "required for build system" "xcode-select --install (macOS) or apt install build-essential (Linux)"
-
-# Git (required for submodules)
-check_command "git" "required" "required for submodules" "xcode-select --install (macOS) or apt install git (Linux)"
 
 # curl or wget (required for downloading runtimes)
 check_curl_or_wget
@@ -187,16 +177,14 @@ if [ ${#MISSING_REQUIRED[@]} -gt 0 ]; then
 elif [ ${#MISSING_OPTIONAL[@]} -gt 0 ]; then
   echo "OK: All required tools present (some optional tools missing)"
   echo ""
-  echo "You can proceed with: make init build"
+  echo "You can proceed with: make install-runtimes"
   echo "Some runtimes may not be available without optional tools."
   exit 0
 else
   echo "OK: All prerequisites met"
   echo ""
   echo "Next steps:"
-  echo "  make init              # Initialize submodules"
-  echo "  make build             # Build wabt"
-  echo "  make install-runtimes  # Install WASM runtimes"
+  echo "  make install-runtimes  # Install all WASM runtimes"
   echo "  make test              # Run tests"
   exit 0
 fi

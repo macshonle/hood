@@ -1,88 +1,111 @@
 # Runtime Notes
 
-Notes on WebAssembly runtime compatibility and known issues.
+Notes on WebAssembly runtime installation and compatibility.
 
-## WasmEdge
+## Installation Overview
 
-**Status**: Installation issues on macOS ARM64 (as of January 2025)
+All project-local runtimes are installed under `external/`:
 
-### Issue
-The WasmEdge installer (`setup_runtimes.sh --wasmedge`) installs a small wrapper script to `bin/wasmedge` instead of the actual binary. The actual runtime is installed to `~/.wasmedge/bin/wasmedge`.
+| Runtime | Location | Platform | Install Command |
+|---------|----------|----------|-----------------|
+| wabt | `external/wabt/` | All | `make init build` (git submodule) |
+| wasmtime | `external/wasmtime/` | All | `make install-wasmtime` |
+| wazero | `external/wazero/` | All | `make install-wazero` (requires Go) |
+| wasmer | `external/wasmer/` | Linux only | `make install-wasmer` |
+| wasmedge | `external/wasmedge/` | Linux only | `make install-wasmedge` |
+| Node.js | System | All | System package manager |
 
-### To Investigate
-- [ ] Verify if WasmEdge works properly on Linux x86_64
-- [ ] Check if symlinking `~/.wasmedge/bin/wasmedge` to `bin/wasmedge` resolves the issue
-- [ ] Test with manual installation from WasmEdge releases
+## System Prerequisites
 
-### Workaround
-If you need WasmEdge support, try:
-```bash
-# Check if WasmEdge was installed to the default location
-~/.wasmedge/bin/wasmedge --version
+These must be installed system-wide before building:
 
-# If that works, you can symlink it
-rm bin/wasmedge
-ln -s ~/.wasmedge/bin/wasmedge bin/wasmedge
-```
+**Required:**
+- CMake 3.12+ (for building wabt)
+- C++ compiler (gcc or clang)
+- Make
+- Git
+- curl or wget
 
-## Wasmer
+**Optional:**
+- Go (for wazero runtime)
+- Node.js 18+ (for Node.js runtime tests)
 
-**Status**: Download fails on macOS ARM64 (as of January 2025)
+Run `make check-prereqs` to verify prerequisites.
 
-### Issue
-The Wasmer installer returns 404 for the ARM64 macOS binary URL.
+## Platform-Specific Notes
 
-### To Investigate
-- [ ] Check if Wasmer releases have updated their download URLs
-- [ ] Verify Wasmer works on Linux x86_64
-- [ ] Try installing via Homebrew: `brew install wasmer`
+### macOS (ARM64 and x86_64)
 
-## wabt (wat2wasm)
+Available runtimes:
+- wabt (built from source)
+- wasmtime (binary download)
+- wazero (built via Go)
+
+Not available on macOS:
+- **wasmer** - ARM64 binary URLs return 404
+- **wasmedge** - Installer doesn't work correctly on macOS
+
+### Linux (x86_64 and aarch64)
+
+All runtimes are available.
+
+## Runtime Details
+
+### wabt (wat2wasm)
 
 **Status**: Working, but missing WasmGC syntax support
 
-### Issue
-The `wat2wasm` tool from WABT does not fully support WasmGC proposal syntax (`struct.new`, `(ref $Type)`, etc.). This means WasmGC tests cannot be compiled with wabt.
+The `wat2wasm` tool does not fully support WasmGC proposal syntax (`struct.new`, `(ref $Type)`, etc.). WasmGC tests are skipped during conformance testing.
 
-### Impact
-- All WasmGC tests fail with "compilation error" even though wasmtime and nodejs support running WasmGC modules
-- Need a GC-capable WAT compiler (e.g., `wasm-tools` from Bytecode Alliance)
-
-### To Investigate
+To investigate:
 - [ ] Add `wasm-tools` as an alternative WAT compiler for GC tests
 - [ ] Check wabt roadmap for GC syntax support
 
-## wasmtime
+### wasmtime
 
 **Status**: Working well for most features
 
-### Supported Proposals
-- bulk-memory
-- multi-memory
-- multi-value
-- reference-types
+**Supported Proposals:**
+- bulk-memory, multi-memory, multi-value
+- reference-types, function-references
 - simd, relaxed-simd
-- tail-call
-- threads
-- memory64
-- function-references
+- tail-call, threads, memory64
 - gc (WasmGC)
 
-### Unsupported Proposals (as of v27.0.0)
-- **exceptions** - Not yet implemented
-- **extended-const** - Not listed in available options
+**Unsupported Proposals (as of v27.0.0):**
+- exceptions - Not yet implemented
+- extended-const - Not available
 
-### Impact
-Tests in `test/wat/proposals/exceptions/` and `test/wat/proposals/extended-const/` will fail with wasmtime.
+Tests for unsupported proposals are automatically skipped.
 
-## wazero
-
-**Status**: Working
-
-Installed via Go, works well for core WASM and WASI tests.
-
-## Node.js
+### wazero
 
 **Status**: Working
 
-Uses system Node.js with WASI support. Works for core WASM, WASI, and WasmGC (when properly compiled).
+Requires Go to be installed. Works well for core WASM and WASI tests.
+
+### wasmer
+
+**Status**: Linux only
+
+On macOS, the Wasmer installer returns 404 for ARM64 binary URLs.
+
+### wasmedge
+
+**Status**: Linux only
+
+On macOS, the installer creates a wrapper script that doesn't function correctly.
+
+### Node.js
+
+**Status**: Working (system install)
+
+Uses system Node.js with WASI support. Requires Node.js 18+.
+
+## Cleaning Up
+
+```bash
+make clean-runtimes    # Remove all installed runtimes
+make clean             # Remove wabt build and .wasm files
+make distclean         # Remove everything including submodules
+```

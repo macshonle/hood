@@ -117,17 +117,17 @@ check_runtime() {
             version_arg="--version"
             ;;
         wasmtime)
-            binary="${PROJECT_ROOT}/bin/wasmtime"
+            binary="${PROJECT_ROOT}/external/wasmtime/wasmtime"
             [[ ! -x "$binary" ]] && binary="$(command -v wasmtime 2>/dev/null || true)"
             version_arg="--version"
             ;;
         wasmer)
-            binary="${PROJECT_ROOT}/bin/wasmer"
+            binary="${PROJECT_ROOT}/external/wasmer/bin/wasmer"
             [[ ! -x "$binary" ]] && binary="$(command -v wasmer 2>/dev/null || true)"
             version_arg="--version"
             ;;
         wazero)
-            binary="${PROJECT_ROOT}/bin/wazero"
+            binary="${PROJECT_ROOT}/external/wazero/bin/wazero"
             [[ ! -x "$binary" ]] && binary="$(command -v wazero 2>/dev/null || true)"
             version_arg="version"
             ;;
@@ -136,7 +136,7 @@ check_runtime() {
             version_arg="--version"
             ;;
         wasmedge)
-            binary="${PROJECT_ROOT}/bin/wasmedge"
+            binary="${PROJECT_ROOT}/external/wasmedge/bin/wasmedge"
             [[ ! -x "$binary" ]] && binary="$(command -v wasmedge 2>/dev/null || true)"
             version_arg="--version"
             ;;
@@ -724,10 +724,10 @@ main() {
             local binary=""
             case "$rt" in
                 wabt) binary="${PROJECT_ROOT}/external/wabt/build/wasm-interp" ;;
-                wasmtime) binary="${PROJECT_ROOT}/bin/wasmtime" ;;
-                wasmer) binary="${PROJECT_ROOT}/bin/wasmer" ;;
-                wazero) binary="${PROJECT_ROOT}/bin/wazero" ;;
-                wasmedge) binary="${PROJECT_ROOT}/bin/wasmedge" ;;
+                wasmtime) binary="${PROJECT_ROOT}/external/wasmtime/wasmtime" ;;
+                wasmer) binary="${PROJECT_ROOT}/external/wasmer/bin/wasmer" ;;
+                wazero) binary="${PROJECT_ROOT}/external/wazero/bin/wazero" ;;
+                wasmedge) binary="${PROJECT_ROOT}/external/wasmedge/bin/wasmedge" ;;
             esac
             if [[ -x "$binary" ]]; then
                 echo -e "  ${RED}✗${NC} $rt: exists but cannot execute (wrong platform?)"

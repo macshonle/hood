@@ -1,291 +1,202 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Prerequisites Checker for Hood Test Suite
-# Verifies system has necessary tools before running setup
+# Prerequisites Checker for Hood Project
+# Verifies system has necessary tools installed
+# Exit codes: 0 = all required present, 1 = missing required tools
 
 set -e
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-print_header() {
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}$1${NC}"
-    echo -e "${BLUE}========================================${NC}"
+# Track missing prerequisites
+MISSING_REQUIRED=()
+MISSING_OPTIONAL=()
+
+check_command() {
+  local cmd=$1
+  local required=$2
+  local description=$3
+  local install_hint=$4
+
+  if command -v "$cmd" &> /dev/null; then
+    local version
+    case "$cmd" in
+      cmake)
+        version=$(cmake --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+        ;;
+      go)
+        version=$(go version 2>&1 | grep -Eo 'go[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+        ;;
+      node)
+        version=$(node --version 2>&1)
+        ;;
+      gcc|clang)
+        version=$(${cmd} --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+        ;;
+      *)
+        version=$($cmd --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || echo "unknown")
+        ;;
+    esac
+    echo "[OK] $cmd $version"
+    return 0
+  else
+    if [ "$required" = "required" ]; then
+      echo "[MISSING] $cmd - $description"
+      echo "          Install: $install_hint"
+      MISSING_REQUIRED+=("$cmd")
+    else
+      echo "[MISSING] $cmd - $description (optional)"
+      echo "          Install: $install_hint"
+      MISSING_OPTIONAL+=("$cmd")
+    fi
+    return 1
+  fi
 }
 
-check_pass() {
-    echo -e "${GREEN}✓${NC} $1"
+check_cmake_version() {
+  if ! command -v cmake &> /dev/null; then
+    return 1
+  fi
+  local version
+  version=$(cmake --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+' | head -1)
+  local major minor
+  major=$(echo "$version" | cut -d. -f1)
+  minor=$(echo "$version" | cut -d. -f2)
+  if [ "$major" -gt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -ge 12 ]; }; then
+    return 0
+  else
+    echo "[ERROR] CMake version $version is too old (need 3.12+)"
+    MISSING_REQUIRED+=("cmake-upgrade")
+    return 1
+  fi
 }
 
-check_fail() {
-    echo -e "${RED}✗${NC} $1"
+check_node_version() {
+  if ! command -v node &> /dev/null; then
+    return 1
+  fi
+  local version
+  version=$(node --version 2>&1 | sed 's/^v//')
+  local major
+  major=$(echo "$version" | cut -d. -f1)
+  if [ "$major" -ge 18 ]; then
+    return 0
+  else
+    echo "[WARNING] Node.js version $version is old (recommend 18+ for WASI tests)"
+    return 0
+  fi
 }
 
-check_warn() {
-    echo -e "${YELLOW}⚠${NC} $1"
+check_cpp_compiler() {
+  if command -v clang &> /dev/null; then
+    local version
+    version=$(clang --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    echo "[OK] clang $version"
+    return 0
+  elif command -v gcc &> /dev/null; then
+    local version
+    version=$(gcc --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    echo "[OK] gcc $version"
+    return 0
+  else
+    echo "[MISSING] C++ compiler (gcc or clang) - required for building wabt"
+    echo "          Install: xcode-select --install (macOS) or apt install build-essential (Linux)"
+    MISSING_REQUIRED+=("c++ compiler")
+    return 1
+  fi
 }
 
-check_info() {
-    echo -e "${BLUE}→${NC} $1"
+check_curl_or_wget() {
+  if command -v curl &> /dev/null; then
+    local version
+    version=$(curl --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    echo "[OK] curl $version"
+    return 0
+  elif command -v wget &> /dev/null; then
+    local version
+    version=$(wget --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    echo "[OK] wget $version"
+    return 0
+  else
+    echo "[MISSING] curl or wget - required for downloading runtimes"
+    echo "          Install: brew install curl (macOS) or apt install curl (Linux)"
+    MISSING_REQUIRED+=("curl")
+    return 1
+  fi
 }
 
-# Track status
-REQUIRED_MISSING=0
-OPTIONAL_MISSING=0
-
-# Detect OS for package manager suggestions
+# Detect OS
 detect_os() {
-    case "$(uname -s)" in
-        Linux*)     echo "linux";;
-        Darwin*)    echo "macos";;
-        *)          echo "unknown";;
-    esac
+  case "$(uname -s)" in
+    Linux*)  echo "linux" ;;
+    Darwin*) echo "macos" ;;
+    *)       echo "unknown" ;;
+  esac
 }
 
-get_install_hint() {
-    local package=$1
-    local os=$(detect_os)
-
-    case "$os" in
-        macos)
-            case "$package" in
-                cmake)        echo "brew install cmake";;
-                build-essential) echo "xcode-select --install";;
-                make)         echo "xcode-select --install";;
-                git)          echo "xcode-select --install  OR  brew install git";;
-                curl)         echo "curl is pre-installed on macOS";;
-                tar)          echo "tar is pre-installed on macOS";;
-                *)            echo "brew install $package";;
-            esac
-            ;;
-        linux)
-            echo "sudo apt install $package  (Debian/Ubuntu)"
-            ;;
-        *)
-            echo "Install $package using your package manager"
-            ;;
-    esac
-}
-
-print_header "Hood Test Suite - Prerequisites Check"
+# Main
+echo "Hood Project - Prerequisites Check"
+echo "==================================="
+echo ""
+echo "System: $(uname -s) $(uname -m)"
 echo ""
 
-# Detect architecture
-ARCH=$(uname -m)
-OS=$(uname -s)
+echo "Required Tools:"
+echo "---------------"
 
-echo "System Information:"
-echo "  OS: $OS"
-echo "  Architecture: $ARCH"
+# CMake (required for wabt)
+check_command "cmake" "required" "required for building wabt" "brew install cmake (macOS) or apt install cmake (Linux)"
+check_cmake_version
+
+# C++ compiler (required for wabt)
+check_cpp_compiler
+
+# Make (required for build)
+check_command "make" "required" "required for build system" "xcode-select --install (macOS) or apt install build-essential (Linux)"
+
+# Git (required for submodules)
+check_command "git" "required" "required for submodules" "xcode-select --install (macOS) or apt install git (Linux)"
+
+# curl or wget (required for downloading runtimes)
+check_curl_or_wget
+
+# tar (required for extracting archives)
+check_command "tar" "required" "required for extracting archives" "pre-installed on most systems"
+
 echo ""
+echo "Optional Tools:"
+echo "---------------"
 
-if [[ "$ARCH" != "x86_64" && "$ARCH" != "aarch64" && "$ARCH" != "arm64" ]]; then
-    check_warn "Unsupported architecture: $ARCH (x86_64 or aarch64 recommended)"
-fi
+# Go (optional, for wazero)
+check_command "go" "optional" "needed for wazero runtime" "brew install go (macOS) or apt install golang (Linux)"
 
-print_header "Required Tools"
-echo ""
-
-# Check CMake
-if command -v cmake &> /dev/null; then
-    VERSION=$(cmake --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    MAJOR=$(echo "$VERSION" | cut -d. -f1)
-    MINOR=$(echo "$VERSION" | cut -d. -f2)
-
-    if [[ $MAJOR -gt 3 || ($MAJOR -eq 3 && $MINOR -ge 12) ]]; then
-        check_pass "CMake $VERSION (need 3.12+)"
-    else
-        check_fail "CMake $VERSION is too old (need 3.12+)"
-        REQUIRED_MISSING=1
-    fi
-else
-    check_fail "CMake not found (required for WABT)"
-    echo "         Install: $(get_install_hint cmake)"
-    REQUIRED_MISSING=1
-fi
-
-# Check GCC/Clang
-if command -v gcc &> /dev/null; then
-    VERSION=$(gcc --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    check_pass "GCC $VERSION"
-elif command -v clang &> /dev/null; then
-    VERSION=$(clang --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    check_pass "Clang $VERSION"
-else
-    check_fail "C++ compiler not found (gcc or clang required)"
-    echo "         Install: $(get_install_hint build-essential)"
-    REQUIRED_MISSING=1
-fi
-
-# Check make
-if command -v make &> /dev/null; then
-    VERSION=$(make --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+' | head -1)
-    check_pass "Make $VERSION"
-else
-    check_fail "Make not found"
-    echo "         Install: $(get_install_hint make)"
-    REQUIRED_MISSING=1
-fi
-
-# Check git
-if command -v git &> /dev/null; then
-    VERSION=$(git --version 2>&1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    check_pass "Git $VERSION"
-else
-    check_fail "Git not found"
-    echo "         Install: $(get_install_hint git)"
-    REQUIRED_MISSING=1
-fi
-
-# Check curl or wget
-if command -v curl &> /dev/null; then
-    VERSION=$(curl --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    check_pass "curl $VERSION"
-elif command -v wget &> /dev/null; then
-    VERSION=$(wget --version 2>&1 | head -1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    check_pass "wget $VERSION"
-else
-    check_fail "curl or wget not found"
-    echo "         Install: $(get_install_hint curl)"
-    REQUIRED_MISSING=1
-fi
-
-# Check tar
-if command -v tar &> /dev/null; then
-    check_pass "tar (for extracting archives)"
-else
-    check_fail "tar not found"
-    echo "         Install: $(get_install_hint tar)"
-    REQUIRED_MISSING=1
+# Node.js (optional, for Node.js runtime tests)
+if check_command "node" "optional" "needed for Node.js runtime tests" "brew install node (macOS) or apt install nodejs (Linux)"; then
+  check_node_version
 fi
 
 echo ""
-print_header "Optional Tools (for specific runtimes)"
-echo ""
+echo "==================================="
 
-# Check Node.js
-if command -v node &> /dev/null; then
-    FULL_VERSION=$(node --version 2>&1 | cut -c2-)
-    MAJOR_VERSION=$(echo "$FULL_VERSION" | cut -d. -f1)
-    if [[ $MAJOR_VERSION -ge 18 ]]; then
-        check_pass "Node.js v$FULL_VERSION (need 18+)"
-    else
-        check_warn "Node.js v$FULL_VERSION is too old (need 18+ for WASI/WasmGC)"
-        echo "         Upgrade: https://nodejs.org/"
-        OPTIONAL_MISSING=1
-    fi
+if [ ${#MISSING_REQUIRED[@]} -gt 0 ]; then
+  echo "FAILED: Missing required tools: ${MISSING_REQUIRED[*]}"
+  echo ""
+  echo "Please install the missing tools and run this check again."
+  exit 1
+elif [ ${#MISSING_OPTIONAL[@]} -gt 0 ]; then
+  echo "OK: All required tools present (some optional tools missing)"
+  echo ""
+  echo "You can proceed with: make init build"
+  echo "Some runtimes may not be available without optional tools."
+  exit 0
 else
-    check_warn "Node.js not found (optional: for Node.js runtime tests)"
-    echo "         Install: https://nodejs.org/"
-    OPTIONAL_MISSING=1
-fi
-
-# Check Go
-if command -v go &> /dev/null; then
-    VERSION=$(go version 2>&1 | grep -Eo 'go[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    check_pass "Go $VERSION (for wazero runtime)"
-else
-    check_warn "Go not found (optional: only needed for wazero runtime)"
-    echo "         Install: https://golang.org/doc/install"
-    OPTIONAL_MISSING=1
-fi
-
-# Check Python3
-if command -v python3 &> /dev/null; then
-    VERSION=$(python3 --version 2>&1 | grep -Eo '[0-9]+\.[0-9]+' | head -1)
-    check_pass "Python $VERSION (may be needed for some build scripts)"
-else
-    check_warn "Python3 not found (usually not needed, but some builds may require it)"
-fi
-
-echo ""
-print_header "Project Status"
-echo ""
-
-# Check WABT submodule
-if [[ -d "external/wabt/.git" || -f "external/wabt/CMakeLists.txt" ]]; then
-    check_pass "WABT submodule initialized"
-
-    if [[ -x "external/wabt/build/wat2wasm" ]]; then
-        check_pass "WABT already built"
-    else
-        check_info "WABT needs to be built (will be done by setup script)"
-    fi
-else
-    check_warn "WABT submodule not initialized"
-    echo "         Run: git submodule update --init --recursive"
-fi
-
-# Check for bin directory
-if [[ -d "bin" ]]; then
-    check_pass "bin/ directory exists"
-
-    # Check for installed runtimes
-    INSTALLED=0
-    for runtime in wasmtime wasmer wazero wasmedge; do
-        if [[ -x "bin/$runtime" ]]; then
-            check_pass "$runtime installed"
-            INSTALLED=$((INSTALLED + 1))
-        fi
-    done
-
-    if [[ $INSTALLED -eq 0 ]]; then
-        check_info "No runtimes installed yet (run setup script)"
-    fi
-else
-    check_info "bin/ directory will be created by setup script"
-fi
-
-# Check test files
-TEST_COUNT=$(find test -name "*.wat" -type f 2>/dev/null | wc -l)
-if [[ $TEST_COUNT -gt 0 ]]; then
-    check_pass "Found $TEST_COUNT test files"
-else
-    check_warn "No test files found"
-fi
-
-echo ""
-print_header "Summary"
-echo ""
-
-if [[ $REQUIRED_MISSING -eq 0 && $OPTIONAL_MISSING -eq 0 ]]; then
-    check_pass "All prerequisites met! Ready to run setup script."
-    echo ""
-    echo "Next steps:"
-    echo "  1. Run: ./scripts/setup_runtimes.sh"
-    echo "  2. Test: ./test/run_conformance.sh --all-runtimes"
-    exit 0
-elif [[ $REQUIRED_MISSING -eq 0 ]]; then
-    check_pass "All required prerequisites met!"
-    check_warn "Some optional tools are missing"
-    echo ""
-    echo "You can proceed with setup, but some runtimes may not be available."
-    echo ""
-    echo "Next steps:"
-    echo "  1. (Optional) Install missing tools for more runtime coverage"
-    echo "  2. Run: ./scripts/setup_runtimes.sh"
-    echo "  3. Test: ./test/run_conformance.sh --all-runtimes"
-    exit 0
-else
-    check_fail "Missing required prerequisites"
-    echo ""
-    echo "Please install the missing required tools before proceeding."
-    echo ""
-    if [[ "$(detect_os)" == "macos" ]]; then
-        echo "Quick install (macOS):"
-        echo "  xcode-select --install    # For git, make, compiler"
-        echo "  brew install cmake        # If Homebrew is installed"
-    else
-        echo "Quick install (Ubuntu/Debian):"
-        echo "  sudo apt update"
-        echo "  sudo apt install -y cmake build-essential git curl"
-    fi
-    echo ""
-    echo "Then run this check again: ./scripts/check_prerequisites.sh"
-    exit 1
+  echo "OK: All prerequisites met"
+  echo ""
+  echo "Next steps:"
+  echo "  make init              # Initialize submodules"
+  echo "  make build             # Build wabt"
+  echo "  make install-runtimes  # Install WASM runtimes"
+  echo "  make test              # Run tests"
+  exit 0
 fi

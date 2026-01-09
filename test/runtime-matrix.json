@@ -1,0 +1,217 @@
+{
+  "runtimes": {
+    "wabt": {
+      "name": "WABT (wasm-interp)",
+      "type": "interpreter",
+      "binary": "external/wabt/build/wasm-interp",
+      "wat_compiler": "external/wabt/build/wat2wasm",
+      "supported_features": {
+        "core": true,
+        "wasi": false,
+        "wasix": false,
+        "wasmgc": false,
+        "proposals": [
+          "simd",
+          "threads",
+          "exceptions",
+          "tail-call",
+          "bulk-memory",
+          "reference-types",
+          "multi-value",
+          "sign-extension",
+          "nontrapping-float-to-int",
+          "mutable-globals",
+          "memory64",
+          "multi-memory",
+          "extended-const",
+          "relaxed-simd",
+          "function-references"
+        ]
+      },
+      "install": {
+        "method": "submodule",
+        "instructions": "cd external/wabt && mkdir -p build && cd build && cmake .. && make"
+      }
+    },
+    "wasmtime": {
+      "name": "Wasmtime",
+      "type": "compiler",
+      "binary": "bin/wasmtime",
+      "wat_compiler": "external/wabt/build/wat2wasm",
+      "supported_features": {
+        "core": true,
+        "wasi": true,
+        "wasix": false,
+        "wasmgc": true,
+        "component_model": true,
+        "proposals": [
+          "simd",
+          "threads",
+          "tail-call",
+          "bulk-memory",
+          "reference-types",
+          "multi-value",
+          "sign-extension",
+          "nontrapping-float-to-int",
+          "mutable-globals",
+          "multi-memory",
+          "extended-const",
+          "relaxed-simd",
+          "function-references",
+          "gc",
+          "memory64"
+        ]
+      },
+      "install": {
+        "method": "download",
+        "linux_url": "https://github.com/bytecodealliance/wasmtime/releases/download/v27.0.0/wasmtime-v27.0.0-x86_64-linux.tar.xz",
+        "macos_url": "https://github.com/bytecodealliance/wasmtime/releases/download/v27.0.0/wasmtime-v27.0.0-x86_64-macos.tar.xz"
+      }
+    },
+    "wasmer": {
+      "name": "Wasmer",
+      "type": "compiler",
+      "binary": "bin/wasmer",
+      "wat_compiler": "external/wabt/build/wat2wasm",
+      "supported_features": {
+        "core": true,
+        "wasi": true,
+        "wasix": true,
+        "wasmgc": false,
+        "proposals": [
+          "simd",
+          "threads",
+          "bulk-memory",
+          "reference-types",
+          "multi-value",
+          "sign-extension",
+          "nontrapping-float-to-int",
+          "mutable-globals",
+          "tail-call"
+        ]
+      },
+      "install": {
+        "method": "curl",
+        "command": "curl https://get.wasmer.io -sSfL | sh"
+      }
+    },
+    "wazero": {
+      "name": "wazero",
+      "type": "interpreter",
+      "binary": "bin/wazero",
+      "wat_compiler": "external/wabt/build/wat2wasm",
+      "supported_features": {
+        "core": true,
+        "wasi": true,
+        "wasix": false,
+        "wasmgc": false,
+        "proposals": [
+          "bulk-memory",
+          "reference-types",
+          "multi-value",
+          "sign-extension",
+          "nontrapping-float-to-int",
+          "mutable-globals"
+        ]
+      },
+      "install": {
+        "method": "go",
+        "command": "go install github.com/tetratelabs/wazero/cmd/wazero@latest"
+      }
+    },
+    "nodejs": {
+      "name": "Node.js",
+      "type": "jit",
+      "binary": "node",
+      "wat_compiler": "external/wabt/build/wat2wasm",
+      "supported_features": {
+        "core": true,
+        "wasi": true,
+        "wasix": false,
+        "wasmgc": true,
+        "proposals": [
+          "simd",
+          "threads",
+          "bulk-memory",
+          "reference-types",
+          "multi-value",
+          "sign-extension",
+          "nontrapping-float-to-int",
+          "mutable-globals",
+          "tail-call",
+          "gc"
+        ]
+      },
+      "install": {
+        "method": "system",
+        "instructions": "Install Node.js 18+ from nodejs.org or your package manager"
+      }
+    },
+    "wasmedge": {
+      "name": "WasmEdge",
+      "type": "compiler",
+      "binary": "bin/wasmedge",
+      "wat_compiler": "external/wabt/build/wat2wasm",
+      "supported_features": {
+        "core": true,
+        "wasi": true,
+        "wasix": false,
+        "wasmgc": false,
+        "proposals": [
+          "simd",
+          "threads",
+          "bulk-memory",
+          "reference-types",
+          "multi-value",
+          "sign-extension",
+          "nontrapping-float-to-int",
+          "mutable-globals",
+          "tail-call"
+        ]
+      },
+      "install": {
+        "method": "curl",
+        "command": "curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash"
+      }
+    }
+  },
+  "test_categories": {
+    "core": {
+      "description": "Core WebAssembly specification tests",
+      "path": "test/wat/core",
+      "compatible_runtimes": ["wabt", "wasmtime", "wasmer", "wazero", "nodejs", "wasmedge"]
+    },
+    "proposals": {
+      "description": "WebAssembly proposal tests",
+      "path": "test/wat/proposals",
+      "compatible_runtimes": ["wabt", "wasmtime", "wasmer", "wazero", "nodejs", "wasmedge"]
+    },
+    "wasi": {
+      "description": "WASI (WebAssembly System Interface) tests",
+      "path": "test/wasi",
+      "compatible_runtimes": ["wasmtime", "wasmer", "wazero", "nodejs", "wasmedge"]
+    },
+    "wasix": {
+      "description": "WASIX (Wasmer-extended WASI) tests",
+      "path": "test/wasix",
+      "compatible_runtimes": ["wasmer"]
+    },
+    "wasmgc": {
+      "description": "WebAssembly Garbage Collection tests",
+      "path": "test/wasmgc",
+      "compatible_runtimes": ["wasmtime", "nodejs"]
+    },
+    "component_model": {
+      "description": "WebAssembly Component Model tests",
+      "path": "test/component-model",
+      "compatible_runtimes": ["wasmtime"]
+    }
+  },
+  "default_runtimes": ["wabt", "wasmtime", "wasmer"],
+  "recommended_setup_order": [
+    "wabt",
+    "wasmtime",
+    "wasmer",
+    "nodejs"
+  ]
+}

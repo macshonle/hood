@@ -1,0 +1,136 @@
+================================================================================
+  HOOD TEST SUITE - ARM64 QUICK START
+================================================================================
+
+YOUR CURRENT STATUS:
+  ✓ System: Linux ARM64 (aarch64)
+  ✓ Scripts: Fixed and ready for ARM64
+  ✓ Test files: 99 tests across 7 categories
+  ✗ CMake: NOT INSTALLED (required)
+  ⚠ Node.js: v12.22.9 (too old, need 18+)
+  ⚠ Go: Not installed (optional)
+
+================================================================================
+  MINIMAL SETUP (5 minutes)
+================================================================================
+
+Run these commands to get started with core runtimes:
+
+  1. Install CMake:
+     sudo apt update && sudo apt install -y cmake
+
+  2. Run setup script:
+     cd /workspace
+     ./scripts/setup_runtimes.sh
+
+  3. Run tests:
+     ./test/run_conformance.sh --all-runtimes
+
+This installs: WABT, Wasmtime, Wasmer
+Test coverage: Core WASM + WASI + WASIX + WasmGC
+
+================================================================================
+  RECOMMENDED SETUP (10 minutes)
+================================================================================
+
+For better test coverage, also upgrade Node.js:
+
+  1. Install CMake:
+     sudo apt update && sudo apt install -y cmake
+
+  2. Upgrade Node.js to v20:
+     sudo apt remove -y nodejs npm
+     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+     sudo apt install -y nodejs
+
+  3. Run setup script:
+     cd /workspace
+     ./scripts/setup_runtimes.sh
+
+  4. Verify installation:
+     ./test/run_conformance.sh --matrix
+
+  5. Run tests:
+     ./test/run_conformance.sh --all-runtimes
+
+This adds Node.js v20 for additional WasmGC testing.
+
+================================================================================
+  FULL SETUP (15 minutes)
+================================================================================
+
+For complete coverage including wazero runtime:
+
+  1. Install CMake:
+     sudo apt update && sudo apt install -y cmake
+
+  2. Upgrade Node.js:
+     sudo apt remove -y nodejs npm
+     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+     sudo apt install -y nodejs
+
+  3. Install Go:
+     cd /tmp
+     wget https://go.dev/dl/go1.22.0.linux-arm64.tar.gz
+     sudo rm -rf /usr/local/go
+     sudo tar -C /usr/local -xzf go1.22.0.linux-arm64.tar.gz
+     export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+
+  4. Run setup script (all runtimes):
+     cd /workspace
+     ./scripts/setup_runtimes.sh --all
+
+  5. Run full test matrix:
+     ./test/run_conformance.sh --all-runtimes
+
+This installs all 6 runtimes for maximum test coverage.
+
+================================================================================
+  HELPER SCRIPTS
+================================================================================
+
+Check what you need:
+  ./scripts/check_prerequisites.sh
+
+Show installed runtimes:
+  ./test/run_conformance.sh --matrix
+
+Get help:
+  ./scripts/setup_runtimes.sh --help
+  ./test/run_conformance.sh --help
+
+================================================================================
+  WHAT WAS FIXED
+================================================================================
+
+The setup script now:
+  ✓ Detects ARM64 architecture automatically
+  ✓ Downloads ARM64 binaries for Wasmtime, Wasmer, WasmEdge
+  ✓ Builds WABT from source (works on any architecture)
+  ✓ Handles Go-based wazero (compiles to native ARM64)
+  ✓ Shows clear architecture detection messages
+  ✓ Provides better error handling
+
+All WebAssembly runtimes support ARM64!
+
+================================================================================
+  DOCUMENTATION
+================================================================================
+
+  SETUP_SUMMARY_ARM64_LINUX.md - Complete ARM64 Linux setup guide
+  INSTALL_ARM64_LINUX.md       - Detailed ARM64 Linux installation instructions
+  README.md             - Project overview and test suite documentation
+  QUICKSTART.md         - General quick start guide
+
+================================================================================
+  NEXT COMMAND TO RUN
+================================================================================
+
+Start with the prerequisites check:
+
+  cd /workspace
+  ./scripts/check_prerequisites.sh
+
+Then install missing tools and run setup script.
+
+================================================================================

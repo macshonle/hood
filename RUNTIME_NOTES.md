@@ -11,7 +11,7 @@ All project-local runtimes are installed under `external/`:
 | wabt | `external/wabt/` | All | `make init build` (git submodule) |
 | wasmtime | `external/wasmtime/` | All | `make install-wasmtime` |
 | wazero | `external/wazero/` | All | `make install-wazero` (requires Go) |
-| wasmer | `external/wasmer/` | Linux only | `make install-wasmer` |
+| wasmer | `external/wasmer/` | All | `make install-wasmer` |
 | wasmedge | `external/wasmedge/` | Linux only | `make install-wasmedge` |
 | Node.js | System | All | System package manager |
 
@@ -39,10 +39,10 @@ Run `make check-prereqs` to verify prerequisites.
 Available runtimes:
 - wabt (built from source)
 - wasmtime (binary download)
+- wasmer (binary download)
 - wazero (built via Go)
 
 Not available on macOS:
-- **wasmer** - ARM64 binary URLs return 404
 - **wasmedge** - Installer doesn't work correctly on macOS
 
 ### Linux (x86_64 and aarch64)
@@ -86,9 +86,9 @@ Requires Go to be installed. Works well for core WASM and WASI tests.
 
 ### wasmer
 
-**Status**: Linux only
+**Status**: Working (all platforms)
 
-On macOS, the Wasmer installer returns 404 for ARM64 binary URLs.
+Downloaded directly from GitHub releases. Supports WASI and WASIX.
 
 ### wasmedge
 

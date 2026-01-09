@@ -17,6 +17,7 @@ WASM_INTERP := $(WABT_BUILD_DIR)/wasm-interp
 
 # Runtime versions
 WASMTIME_VERSION := v27.0.0
+WASMER_VERSION := v6.1.0
 
 # Detect OS and architecture
 UNAME_S := $(shell uname -s)
@@ -121,21 +122,26 @@ install-wazero:
 		echo "wazero installed to $(WAZERO_DIR)/bin/"; \
 	fi
 
-# Install wasmer (Linux only)
+# Install wasmer (all platforms via direct download)
 .PHONY: install-wasmer
 install-wasmer:
-ifeq ($(OS),linux)
 	@if [ -x "$(WASMER_DIR)/bin/wasmer" ]; then \
 		echo "wasmer already installed"; \
 	else \
-		echo "Installing wasmer for $(OS)-$(ARCH)..."; \
-		mkdir -p $(WASMER_DIR); \
-		WASMER_DIR="$(shell pwd)/$(WASMER_DIR)" curl https://get.wasmer.io -sSfL | sh; \
-		echo "wasmer installed to $(WASMER_DIR)/"; \
+		echo "Installing wasmer $(WASMER_VERSION) for $(OS)-$(ARCH)..."; \
+		mkdir -p $(WASMER_DIR)/bin; \
+		WASMER_OS="$(if $(filter macos,$(OS)),darwin,linux)"; \
+		WASMER_ARCH="$(if $(filter aarch64,$(ARCH)),arm64,amd64)"; \
+		if [ "$(OS)" = "linux" ] && [ "$(ARCH)" = "aarch64" ]; then WASMER_ARCH="aarch64"; fi; \
+		ARCHIVE="wasmer-$${WASMER_OS}-$${WASMER_ARCH}"; \
+		echo "Downloading $${ARCHIVE}.tar.gz..."; \
+		curl -L "https://github.com/wasmerio/wasmer/releases/download/$(WASMER_VERSION)/$${ARCHIVE}.tar.gz" -o /tmp/wasmer.tar.gz; \
+		tar -xzf /tmp/wasmer.tar.gz -C /tmp; \
+		cp /tmp/bin/wasmer $(WASMER_DIR)/bin/; \
+		chmod +x $(WASMER_DIR)/bin/wasmer; \
+		rm -rf /tmp/wasmer.tar.gz /tmp/bin /tmp/lib /tmp/include /tmp/LICENSE /tmp/ATTRIBUTIONS; \
+		echo "wasmer installed to $(WASMER_DIR)/bin/"; \
 	fi
-else
-	@echo "[INFO] wasmer: Linux only (not available on macOS)"
-endif
 
 # Install wasmedge (Linux only)
 .PHONY: install-wasmedge
@@ -245,7 +251,7 @@ info:
 	@echo "=== Runtimes ==="
 	@test -x $(WASMTIME_DIR)/wasmtime && echo "wasmtime: $(WASMTIME_DIR)/wasmtime" || echo "wasmtime: not installed"
 	@test -x $(WAZERO_DIR)/bin/wazero && echo "wazero: $(WAZERO_DIR)/bin/wazero" || echo "wazero: not installed"
-	@test -x $(WASMER_DIR)/bin/wasmer && echo "wasmer: $(WASMER_DIR)/bin/wasmer" || echo "wasmer: not installed (Linux only)"
+	@test -x $(WASMER_DIR)/bin/wasmer && echo "wasmer: $(WASMER_DIR)/bin/wasmer" || echo "wasmer: not installed"
 	@test -x $(WASMEDGE_DIR)/bin/wasmedge && echo "wasmedge: $(WASMEDGE_DIR)/bin/wasmedge" || echo "wasmedge: not installed (Linux only)"
 	@command -v node >/dev/null 2>&1 && echo "node: $$(which node)" || echo "node: not installed"
 	@echo ""
@@ -267,7 +273,7 @@ help:
 	@echo "  install-runtimes  Install all available runtimes"
 	@echo "  install-wasmtime  Install wasmtime (all platforms)"
 	@echo "  install-wazero    Install wazero (requires Go)"
-	@echo "  install-wasmer    Install wasmer (Linux only)"
+	@echo "  install-wasmer    Install wasmer (all platforms)"
 	@echo "  install-wasmedge  Install wasmedge (Linux only)"
 	@echo ""
 	@echo "Testing:"

@@ -149,3 +149,8 @@ test/**/*.wasm
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# WasmEdge installation artifacts
+env
+include/
+lib/

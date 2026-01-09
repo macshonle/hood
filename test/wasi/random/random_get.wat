@@ -28,7 +28,7 @@
 
         ;; Very simple check: at least one of them should be non-zero
         ;; (technically could both be zero but extremely unlikely)
-        (if (i64.or (local.get $random1) (local.get $random2))
+        (if (i64.ne (i64.or (local.get $random1) (local.get $random2)) (i64.const 0))
           (then (call $proc_exit (i32.const 0)))  ;; Success
           (else (call $proc_exit (i32.const 2)))  ;; Both zero (unlikely)
         )

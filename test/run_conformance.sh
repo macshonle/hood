@@ -183,15 +183,46 @@ run_with_wabt() {
 
 run_with_wasmtime() {
     local wasm_file=$1
+    local wabt_flags=$2
     local wasmtime=$(get_runtime_binary "wasmtime")
+
+    # Convert wabt flags to wasmtime flags
+    local wt_flags=""
+    case "$wabt_flags" in
+        *--enable-tail-call*)        wt_flags="$wt_flags -W tail-call=y" ;;
+    esac
+    case "$wabt_flags" in
+        *--enable-exceptions*)       wt_flags="$wt_flags -W exceptions=y" ;;
+    esac
+    case "$wabt_flags" in
+        *--enable-threads*)          wt_flags="$wt_flags -W threads=y" ;;
+    esac
+    case "$wabt_flags" in
+        *--enable-memory64*)         wt_flags="$wt_flags -W memory64=y" ;;
+    esac
+    case "$wabt_flags" in
+        *--enable-multi-memory*)     wt_flags="$wt_flags -W multi-memory=y" ;;
+    esac
+    case "$wabt_flags" in
+        *--enable-extended-const*)   wt_flags="$wt_flags -W extended-const=y" ;;
+    esac
+    case "$wabt_flags" in
+        *--enable-relaxed-simd*)     wt_flags="$wt_flags -W relaxed-simd=y" ;;
+    esac
+    case "$wabt_flags" in
+        *--enable-function-references*) wt_flags="$wt_flags -W function-references=y" ;;
+    esac
+    case "$wabt_flags" in
+        *--enable-gc*)               wt_flags="$wt_flags -W gc=y -W function-references=y -W reference-types=y" ;;
+    esac
 
     # Check if this is a WASI module (has wasi imports)
     if wasm-objdump -x "$wasm_file" 2>/dev/null | grep -q "wasi_snapshot_preview1"; then
-        $wasmtime run "$wasm_file" 2>/dev/null
+        $wasmtime run $wt_flags "$wasm_file" 2>/dev/null
     else
         # Core WASM or WasmGC - use invoke
-        $wasmtime run --invoke _start "$wasm_file" 2>/dev/null || \
-        $wasmtime run "$wasm_file" 2>/dev/null
+        $wasmtime run $wt_flags --invoke _start "$wasm_file" 2>/dev/null || \
+        $wasmtime run $wt_flags "$wasm_file" 2>/dev/null
     fi
 }
 
@@ -321,6 +352,28 @@ test_file() {
         return
     fi
 
+    # Skip proposals not supported by wasmtime (as of v27.0.0)
+    if [[ "$runtime" == "wasmtime" ]]; then
+        if [[ "$wat_file" == *"/proposals/exceptions/"* ]]; then
+            echo -e "${YELLOW}SKIP${NC} $relative_path [$runtime] (exceptions proposal not supported)"
+            increment_runtime_var "SKIPPED" "$runtime"
+            return
+        fi
+        if [[ "$wat_file" == *"/proposals/extended-const/"* ]]; then
+            echo -e "${YELLOW}SKIP${NC} $relative_path [$runtime] (extended-const proposal not supported)"
+            increment_runtime_var "SKIPPED" "$runtime"
+            return
+        fi
+    fi
+
+    # Skip WasmGC tests - wabt cannot compile GC syntax (struct.new, ref $Type, etc.)
+    # See RUNTIME_NOTES.md for details on adding a GC-capable WAT compiler
+    if [[ "$category" == "wasmgc" ]]; then
+        echo -e "${YELLOW}SKIP${NC} $relative_path [$runtime] (wabt cannot compile WasmGC syntax)"
+        increment_runtime_var "SKIPPED" "$runtime"
+        return
+    fi
+
     # Compile WAT to WASM
     if ! compile_wat "$wat_file" "$wasm_file" "$flags"; then
         echo -e "${RED}FAIL${NC} $relative_path [$runtime] (compilation error)"
@@ -335,7 +388,7 @@ test_file() {
             run_with_wabt "$wasm_file" "$flags" && run_result=0 || run_result=$?
             ;;
         wasmtime)
-            run_with_wasmtime "$wasm_file" && run_result=0 || run_result=$?
+            run_with_wasmtime "$wasm_file" "$flags" && run_result=0 || run_result=$?
             ;;
         wasmer)
             run_with_wasmer "$wasm_file" && run_result=0 || run_result=$?

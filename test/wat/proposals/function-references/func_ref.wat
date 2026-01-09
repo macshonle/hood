@@ -4,6 +4,10 @@
   (type $i32_to_i32 (func (param i32) (result i32)))
   (type $binary_op (func (param i32 i32) (result i32)))
 
+  ;; Declare functions that will be used with ref.func
+  ;; (required by the spec - functions must be in an elem segment to use ref.func)
+  (elem declare func $double $triple)
+
   ;; Functions matching the types
   (func $double (type $i32_to_i32) (param $x i32) (result i32)
     local.get $x

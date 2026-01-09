@@ -24,16 +24,21 @@ PASSED=0
 FAILED=0
 SKIPPED=0
 
-# Proposal flags mapping
-declare -A PROPOSAL_FLAGS
-PROPOSAL_FLAGS["tail-call"]="--enable-tail-call"
-PROPOSAL_FLAGS["exceptions"]="--enable-exceptions"
-PROPOSAL_FLAGS["threads"]="--enable-threads"
-PROPOSAL_FLAGS["memory64"]="--enable-memory64"
-PROPOSAL_FLAGS["multi-memory"]="--enable-multi-memory"
-PROPOSAL_FLAGS["extended-const"]="--enable-extended-const"
-PROPOSAL_FLAGS["relaxed-simd"]="--enable-relaxed-simd"
-PROPOSAL_FLAGS["function-references"]="--enable-function-references"
+# Get proposal flag for a given proposal name
+# Compatible with Bash 3.2 (no associative arrays)
+get_proposal_flag() {
+    case "$1" in
+        tail-call)            echo "--enable-tail-call" ;;
+        exceptions)           echo "--enable-exceptions" ;;
+        threads)              echo "--enable-threads" ;;
+        memory64)             echo "--enable-memory64" ;;
+        multi-memory)         echo "--enable-multi-memory" ;;
+        extended-const)       echo "--enable-extended-const" ;;
+        relaxed-simd)         echo "--enable-relaxed-simd" ;;
+        function-references)  echo "--enable-function-references" ;;
+        *)                    echo "" ;;
+    esac
+}
 
 # Check if wabt tools exist
 check_wabt() {
@@ -53,10 +58,11 @@ check_wabt() {
 get_proposal_flags() {
     local file="$1"
     local flags=""
+    local proposals="tail-call exceptions threads memory64 multi-memory extended-const relaxed-simd function-references"
 
-    for proposal in "${!PROPOSAL_FLAGS[@]}"; do
-        if [[ "$file" == *"/proposals/${proposal}/"* ]]; then
-            flags="${PROPOSAL_FLAGS[$proposal]}"
+    for proposal in $proposals; do
+        if echo "$file" | grep -q "/proposals/${proposal}/"; then
+            flags=$(get_proposal_flag "$proposal")
             break
         fi
     done
@@ -71,12 +77,12 @@ test_file() {
     local flags=$(get_proposal_flags "$wat_file")
     local wasm_file="${wat_file%.wat}.wasm"
 
-    ((TOTAL++))
+    (( TOTAL++ )) || true
 
     # Skip files in imports directory (they need host bindings)
     if [[ "$wat_file" == *"/imports/"* ]]; then
         echo -e "${YELLOW}SKIP${NC} $relative_path (requires imports)"
-        ((SKIPPED++))
+        (( SKIPPED++ )) || true
         return
     fi
 
@@ -85,16 +91,16 @@ test_file() {
         # Try to validate with wasm-interp (dry run)
         if $WASM_INTERP $flags "$wasm_file" --run-all-exports 2>/dev/null; then
             echo -e "${GREEN}PASS${NC} $relative_path"
-            ((PASSED++))
+            (( PASSED++ )) || true
         else
             # Some tests might trap intentionally, still count as pass if they compile
             echo -e "${GREEN}PASS${NC} $relative_path (compiles, execution may trap)"
-            ((PASSED++))
+            (( PASSED++ )) || true
         fi
         rm -f "$wasm_file"
     else
         echo -e "${RED}FAIL${NC} $relative_path (compilation error)"
-        ((FAILED++))
+        (( FAILED++ )) || true
         # Show the error
         $WAT2WASM $flags "$wat_file" -o "$wasm_file" 2>&1 | head -5 || true
     fi
